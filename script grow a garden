@@ -1,0 +1,156 @@
+-- Clean GUI with Pet Monitoring, Server Hop, Webhook Input
+local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local LocalPlayer = Players.LocalPlayer
+local PLACE_ID = game.PlaceId
+
+-- GUI Setup
+local gui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
+gui.Name = "SimplePetFinder"
+
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0, 350, 0, 200)
+frame.Position = UDim2.new(0.5, -175, 0.5, -100)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.AnchorPoint = Vector2.new(0.5, 0.5)
+
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
+
+local function createLabel(text, posY)
+	local label = Instance.new("TextLabel", frame)
+	label.Size = UDim2.new(1, -20, 0, 20)
+	label.Position = UDim2.new(0, 10, 0, posY)
+	label.BackgroundTransparency = 1
+	label.Text = text
+	label.TextColor3 = Color3.new(1, 1, 1)
+	label.Font = Enum.Font.Gotham
+	label.TextSize = 16
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	return label
+end
+
+createLabel("Pet/Item Name:", 10)
+local itemBox = Instance.new("TextBox", frame)
+itemBox.Size = UDim2.new(1, -20, 0, 30)
+itemBox.Position = UDim2.new(0, 10, 0, 30)
+itemBox.PlaceholderText = "Example: RarePet"
+itemBox.Text = ""
+itemBox.TextColor3 = Color3.new(1, 1, 1)
+itemBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+itemBox.Font = Enum.Font.Gotham
+itemBox.TextSize = 16
+Instance.new("UICorner", itemBox).CornerRadius = UDim.new(0, 6)
+
+createLabel("Webhook URL:", 70)
+local webhookBox = Instance.new("TextBox", frame)
+webhookBox.Size = UDim2.new(1, -20, 0, 30)
+webhookBox.Position = UDim2.new(0, 10, 0, 90)
+webhookBox.PlaceholderText = "Paste your Discord webhook here"
+webhookBox.Text = ""
+webhookBox.TextColor3 = Color3.new(1, 1, 1)
+webhookBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+webhookBox.Font = Enum.Font.Gotham
+webhookBox.TextSize = 16
+Instance.new("UICorner", webhookBox).CornerRadius = UDim.new(0, 6)
+
+local status = Instance.new("TextLabel", frame)
+status.Size = UDim2.new(1, -20, 0, 20)
+status.Position = UDim2.new(0, 10, 0, 130)
+status.BackgroundTransparency = 1
+status.Text = "Status: Idle"
+status.TextColor3 = Color3.fromRGB(200, 200, 200)
+status.Font = Enum.Font.GothamItalic
+status.TextSize = 14
+status.TextXAlignment = Enum.TextXAlignment.Left
+
+local startBtn = Instance.new("TextButton", frame)
+startBtn.Size = UDim2.new(1, -20, 0, 30)
+startBtn.Position = UDim2.new(0, 10, 0, 160)
+startBtn.Text = "Start"
+startBtn.TextColor3 = Color3.new(1, 1, 1)
+startBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
+startBtn.Font = Enum.Font.GothamBold
+startBtn.TextSize = 18
+Instance.new("UICorner", startBtn).CornerRadius = UDim.new(0, 6)
+
+-- Logic
+local function hasItem(name)
+	for _, obj in pairs(workspace:GetDescendants()) do
+		if obj:IsA("Model") and obj.Name == name then return true end
+	end
+	return false
+end
+
+local function sendWebhook(url, petName)
+	local payload = HttpService:JSONEncode({
+		content = "🚨 Found **" .. petName .. "**! Server ID:\n```" .. game.JobId .. "```"
+	})
+	pcall(function()
+		HttpService:PostAsync(url, payload, Enum.HttpContentType.ApplicationJson)
+	end)
+end
+
+local function getServers(cursor)
+	local url = "https://games.roblox.com/v1/games/" .. PLACE_ID .. "/servers/Public?sortOrder=Asc&limit=100"
+	if cursor then url = url .. "&cursor=" .. cursor end
+	local success, data = pcall(function()
+		return HttpService:JSONDecode(game:HttpGet(url))
+	end)
+	return success and data or nil
+end
+
+local function hopToNewServer()
+	local tried = {}
+	local cursor = nil
+	while true do
+		local data = getServers(cursor)
+		if not data then status.Text = "Status: Failed to load servers." return end
+		for _, server in pairs(data.data) do
+			if server.id ~= game.JobId and not tried[server.id] and server.playing < server.maxPlayers then
+				TeleportService:TeleportToPlaceInstance(PLACE_ID, server.id, LocalPlayer)
+				return
+			end
+		end
+		if data.nextPageCursor then
+			cursor = data.nextPageCursor
+		else
+			wait(10)
+			cursor = nil
+			tried = {}
+		end
+	end
+end
+
+local function monitor(petName, webhook)
+	local timePassed = 0
+	status.Text = "Status: Monitoring..."
+	while timePassed < 300 do
+		if hasItem(petName) then
+			status.Text = "Status: Pet found!"
+			sendWebhook(webhook, petName)
+			return
+		end
+		wait(5)
+		timePassed += 5
+	end
+	status.Text = "Status: Not found. Hopping..."
+	hopToNewServer()
+end
+
+-- Start Button Logic
+startBtn.MouseButton1Click:Connect(function()
+	local pet = itemBox.Text
+	local hook = webhookBox.Text
+	if pet == "" or hook == "" then
+		status.Text = "Status: Please fill both fields!"
+		return
+	end
+	wait(5) -- wait for workspace to load
+	if hasItem(pet) then
+		status.Text = "Status: Pet found in current server!"
+		sendWebhook(hook, pet)
+	else
+		monitor(pet, hook)
+	end
+end)
