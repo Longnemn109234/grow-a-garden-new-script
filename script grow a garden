@@ -5,16 +5,18 @@ local TeleportService = game:GetService("TeleportService")
 local LocalPlayer = Players.LocalPlayer
 local PLACE_ID = game.PlaceId
 
+local webhookURL = ""
+local isRunning = false
+
 -- GUI Setup
 local gui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
 gui.Name = "SimplePetFinder"
 
 local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.new(0, 350, 0, 250) -- Increased height to fit button
-frame.Position = UDim2.new(0.5, -175, 0.5, -125)
+frame.Size = UDim2.new(0, 350, 0, 240)
+frame.Position = UDim2.new(0.5, -175, 0.5, -120)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.AnchorPoint = Vector2.new(0.5, 0.5)
-
 Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
 
 local function createLabel(text, posY)
@@ -24,131 +26,128 @@ local function createLabel(text, posY)
     label.BackgroundTransparency = 1
     label.Text = text
     label.TextColor3 = Color3.new(1, 1, 1)
-    label.Font = Enum.Font.GothamSemibold
-    label.TextSize = 16
     label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Font = Enum.Font.SourceSansSemibold
+    label.TextSize = 18
     return label
 end
 
-local function createTextbox(placeholder, posY)
-    local box = Instance.new("TextBox", frame)
-    box.Size = UDim2.new(1, -20, 0, 30)
-    box.Position = UDim2.new(0, 10, 0, posY)
-    box.PlaceholderText = placeholder
-    box.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    box.TextColor3 = Color3.new(1, 1, 1)
-    box.ClearTextOnFocus = false
-    box.Font = Enum.Font.Gotham
-    box.TextSize = 16
-    Instance.new("UICorner", box).CornerRadius = UDim.new(0, 6)
-    return box
+local function createInput(posY, placeholder)
+    local input = Instance.new("TextBox", frame)
+    input.Size = UDim2.new(1, -20, 0, 30)
+    input.Position = UDim2.new(0, 10, 0, posY)
+    input.PlaceholderText = placeholder
+    input.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    input.TextColor3 = Color3.new(1, 1, 1)
+    input.Font = Enum.Font.SourceSans
+    input.TextSize = 18
+    input.ClearTextOnFocus = false
+    Instance.new("UICorner", input).CornerRadius = UDim.new(0, 6)
+    return input
 end
 
 createLabel("Pet/Item Name:", 10)
-local petBox = createTextbox("Disco bee", 35)
+local petInput = createInput(35, "Disco bee")
 
 createLabel("Webhook URL:", 75)
-local webhookBox = createTextbox("Paste your Discord webhook here", 100)
+local webhookInput = createInput(100, "Paste your Discord webhook here")
+
+local startButton = Instance.new("TextButton", frame)
+startButton.Size = UDim2.new(1, -20, 0, 40)
+startButton.Position = UDim2.new(0, 10, 0, 140)
+startButton.Text = "🌐 Start"
+startButton.Font = Enum.Font.SourceSansBold
+startButton.TextSize = 20
+startButton.BackgroundColor3 = Color3.fromRGB(40, 130, 220)
+startButton.TextColor3 = Color3.new(1, 1, 1)
+Instance.new("UICorner", startButton).CornerRadius = UDim.new(0, 6)
 
 local statusLabel = Instance.new("TextLabel", frame)
 statusLabel.Size = UDim2.new(1, -20, 0, 20)
-statusLabel.Position = UDim2.new(0, 10, 0, 210)
+statusLabel.Position = UDim2.new(0, 10, 0, 190)
 statusLabel.BackgroundTransparency = 1
-statusLabel.Text = "Status: Idle"
 statusLabel.TextColor3 = Color3.new(1, 1, 1)
-statusLabel.Font = Enum.Font.Gotham
-statusLabel.TextSize = 16
 statusLabel.TextXAlignment = Enum.TextXAlignment.Center
-statusLabel.TextYAlignment = Enum.TextYAlignment.Center
+statusLabel.Text = "Status: Idle"
+statusLabel.Font = Enum.Font.SourceSans
+statusLabel.TextSize = 18
 
--- Added Start Button Fix
-local startBtn = Instance.new("TextButton", frame)
-startBtn.Text = "🌐 Start"
-startBtn.Size = UDim2.new(1, -20, 0, 35)
-startBtn.Position = UDim2.new(0, 10, 0, 160)
-startBtn.BackgroundColor3 = Color3.fromRGB(70, 130, 180)
-startBtn.TextColor3 = Color3.new(1, 1, 1)
-startBtn.Font = Enum.Font.GothamBold
-startBtn.TextSize = 20
-Instance.new("UICorner", startBtn).CornerRadius = UDim.new(0, 8)
-
--- Logic
-local function hasItem(name)
-	for _, obj in pairs(workspace:GetDescendants()) do
-		if obj:IsA("Model") and obj.Name == name then return true end
-	end
-	return false
+-- Utility Functions
+function hasItem(name)
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v:IsA("Model") and v.Name == name then
+            return true
+        end
+    end
+    return false
 end
 
-local function sendWebhook(url, petName)
-	local payload = HttpService:JSONEncode({
-		content = "🚨 Found **" .. petName .. "**! Server ID:\n```" .. game.JobId .. "```"
-	})
-	pcall(function()
-		HttpService:PostAsync(url, payload, Enum.HttpContentType.ApplicationJson)
-	end)
+function sendWebhook(jobId, petName)
+    local data = {
+        content = "Found `" .. petName .. "` in server with JobId: ``" .. jobId .. "``"
+    }
+    local headers = {
+        ["Content-Type"] = "application/json"
+    }
+    local success, response = pcall(function()
+        HttpService:PostAsync(webhookURL, HttpService:JSONEncode(data), Enum.HttpContentType.ApplicationJson, false)
+    end)
 end
 
-local function getServers(cursor)
-	local url = "https://games.roblox.com/v1/games/" .. PLACE_ID .. "/servers/Public?sortOrder=Asc&limit=100"
-	if cursor then url = url .. "&cursor=" .. cursor end
-	local success, data = pcall(function()
-		return HttpService:JSONDecode(game:HttpGet(url))
-	end)
-	return success and data or nil
+function monitorForPet(petName)
+    local timeout = 30
+    local startTime = tick()
+    while tick() - startTime < timeout do
+        if hasItem(petName) then
+            sendWebhook(game.JobId, petName)
+            statusLabel.Text = "Status: Pet/Item found!"
+            return true
+        end
+        wait(2)
+    end
+    return false
 end
 
-local function hopToNewServer()
-	local tried = {}
-	local cursor = nil
-	while true do
-		local data = getServers(cursor)
-		if not data then status.Text = "Status: Failed to load servers." return end
-		for _, server in pairs(data.data) do
-			if server.id ~= game.JobId and not tried[server.id] and server.playing < server.maxPlayers then
-				TeleportService:TeleportToPlaceInstance(PLACE_ID, server.id, LocalPlayer)
-				return
-			end
-		end
-		if data.nextPageCursor then
-			cursor = data.nextPageCursor
-		else
-			wait(10)
-			cursor = nil
-			tried = {}
-		end
-	end
+function hopServers(petName)
+    local servers = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. PLACE_ID .. "/servers/Public?sortOrder=Asc&limit=100"))
+    for _, server in pairs(servers.data) do
+        if server.id ~= game.JobId and server.playing < server.maxPlayers then
+            TeleportService:TeleportToPlaceInstance(PLACE_ID, server.id)
+            break
+        end
+    end
 end
 
-local function monitor(petName, webhook)
-	local timePassed = 0
-	status.Text = "Status: Monitoring..."
-	while timePassed < 300 do
-		if hasItem(petName) then
-			status.Text = "Status: Pet found!"
-			sendWebhook(webhook, petName)
-			return
-		end
-		wait(5)
-		timePassed += 5
-	end
-	status.Text = "Status: Not found. Hopping..."
-	hopToNewServer()
-end
+startButton.MouseButton1Click:Connect(function()
+    if isRunning then
+        statusLabel.Text = "Status: Already running"
+        return
+    end
 
--- Start Button Logic
-startBtn.MouseButton1Click:Connect(function()
-	local pet = itemBox.Text
-	local hook = webhookBox.Text
-	if pet == "" or hook == "" then
-		status.Text = "Status: Please fill both fields!"
-		return
-	end
-	wait(5) -- wait for workspace to load
-	if hasItem(pet) then
-		status.Text = "Status: Pet found in current server!"
-		sendWebhook(hook, pet)
-	else
-		monitor(pet, hook)
-	end
+    local petName = petInput.Text
+    local webhook = webhookInput.Text
+
+    if petName == "" or webhook == "" then
+        statusLabel.Text = "Status: Enter pet name and webhook"
+        return
+    end
+
+    webhookURL = webhook
+    isRunning = true
+    statusLabel.Text = "Status: Monitoring for " .. petName .. "..."
+
+    wait(5)
+
+    if hasItem(petName) then
+        sendWebhook(game.JobId, petName)
+        statusLabel.Text = "Status: Pet/Item found here!"
+        isRunning = false
+    else
+        local found = monitorForPet(petName)
+        if not found then
+            statusLabel.Text = "Status: Not found, hopping..."
+            hopServers(petName)
+        end
+        isRunning = false
+    end
 end)
