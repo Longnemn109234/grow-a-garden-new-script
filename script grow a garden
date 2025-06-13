@@ -10,69 +10,67 @@ local gui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
 gui.Name = "SimplePetFinder"
 
 local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.new(0, 350, 0, 200)
-frame.Position = UDim2.new(0.5, -175, 0.5, -100)
+frame.Size = UDim2.new(0, 350, 0, 250) -- Increased height to fit button
+frame.Position = UDim2.new(0.5, -175, 0.5, -125)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.AnchorPoint = Vector2.new(0.5, 0.5)
 
 Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
 
 local function createLabel(text, posY)
-	local label = Instance.new("TextLabel", frame)
-	label.Size = UDim2.new(1, -20, 0, 20)
-	label.Position = UDim2.new(0, 10, 0, posY)
-	label.BackgroundTransparency = 1
-	label.Text = text
-	label.TextColor3 = Color3.new(1, 1, 1)
-	label.Font = Enum.Font.Gotham
-	label.TextSize = 16
-	label.TextXAlignment = Enum.TextXAlignment.Left
-	return label
+    local label = Instance.new("TextLabel", frame)
+    label.Size = UDim2.new(1, -20, 0, 20)
+    label.Position = UDim2.new(0, 10, 0, posY)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Color3.new(1, 1, 1)
+    label.Font = Enum.Font.GothamSemibold
+    label.TextSize = 16
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    return label
+end
+
+local function createTextbox(placeholder, posY)
+    local box = Instance.new("TextBox", frame)
+    box.Size = UDim2.new(1, -20, 0, 30)
+    box.Position = UDim2.new(0, 10, 0, posY)
+    box.PlaceholderText = placeholder
+    box.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    box.TextColor3 = Color3.new(1, 1, 1)
+    box.ClearTextOnFocus = false
+    box.Font = Enum.Font.Gotham
+    box.TextSize = 16
+    Instance.new("UICorner", box).CornerRadius = UDim.new(0, 6)
+    return box
 end
 
 createLabel("Pet/Item Name:", 10)
-local itemBox = Instance.new("TextBox", frame)
-itemBox.Size = UDim2.new(1, -20, 0, 30)
-itemBox.Position = UDim2.new(0, 10, 0, 30)
-itemBox.PlaceholderText = "Example: RarePet"
-itemBox.Text = ""
-itemBox.TextColor3 = Color3.new(1, 1, 1)
-itemBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-itemBox.Font = Enum.Font.Gotham
-itemBox.TextSize = 16
-Instance.new("UICorner", itemBox).CornerRadius = UDim.new(0, 6)
+local petBox = createTextbox("Disco bee", 35)
 
-createLabel("Webhook URL:", 70)
-local webhookBox = Instance.new("TextBox", frame)
-webhookBox.Size = UDim2.new(1, -20, 0, 30)
-webhookBox.Position = UDim2.new(0, 10, 0, 90)
-webhookBox.PlaceholderText = "Paste your Discord webhook here"
-webhookBox.Text = ""
-webhookBox.TextColor3 = Color3.new(1, 1, 1)
-webhookBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-webhookBox.Font = Enum.Font.Gotham
-webhookBox.TextSize = 16
-Instance.new("UICorner", webhookBox).CornerRadius = UDim.new(0, 6)
+createLabel("Webhook URL:", 75)
+local webhookBox = createTextbox("Paste your Discord webhook here", 100)
 
-local status = Instance.new("TextLabel", frame)
-status.Size = UDim2.new(1, -20, 0, 20)
-status.Position = UDim2.new(0, 10, 0, 130)
-status.BackgroundTransparency = 1
-status.Text = "Status: Idle"
-status.TextColor3 = Color3.fromRGB(200, 200, 200)
-status.Font = Enum.Font.GothamItalic
-status.TextSize = 14
-status.TextXAlignment = Enum.TextXAlignment.Left
+local statusLabel = Instance.new("TextLabel", frame)
+statusLabel.Size = UDim2.new(1, -20, 0, 20)
+statusLabel.Position = UDim2.new(0, 10, 0, 210)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Text = "Status: Idle"
+statusLabel.TextColor3 = Color3.new(1, 1, 1)
+statusLabel.Font = Enum.Font.Gotham
+statusLabel.TextSize = 16
+statusLabel.TextXAlignment = Enum.TextXAlignment.Center
+statusLabel.TextYAlignment = Enum.TextYAlignment.Center
 
+-- Added Start Button Fix
 local startBtn = Instance.new("TextButton", frame)
-startBtn.Size = UDim2.new(1, -20, 0, 30)
+startBtn.Text = "🌐 Start"
+startBtn.Size = UDim2.new(1, -20, 0, 35)
 startBtn.Position = UDim2.new(0, 10, 0, 160)
-startBtn.Text = "Start"
+startBtn.BackgroundColor3 = Color3.fromRGB(70, 130, 180)
 startBtn.TextColor3 = Color3.new(1, 1, 1)
-startBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
 startBtn.Font = Enum.Font.GothamBold
-startBtn.TextSize = 18
-Instance.new("UICorner", startBtn).CornerRadius = UDim.new(0, 6)
+startBtn.TextSize = 20
+Instance.new("UICorner", startBtn).CornerRadius = UDim.new(0, 8)
 
 -- Logic
 local function hasItem(name)
