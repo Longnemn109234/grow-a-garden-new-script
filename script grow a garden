@@ -1,118 +1,73 @@
--- 🖥️ Alt Account GUI Scanner for Grow a Garden
--- Detects rare pets (Disco Bee / Butterfly / Divine pets) in server
--- Sends alert if found
-
 local HttpService = game:GetService("HttpService")
-local TeleportService = game:GetService("TeleportService")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local CoreGui = game:GetService("CoreGui")
 
--- === CONFIG ===
-local WEBHOOK = "https://discord.com/api/webhooks/YOUR_WEBHOOK_HERE"
-local PLACE_ID = 15744126173
-local RARE_PETS = {
-	["Disco Bee"] = true,
-	["Butterfly"] = true,
-	["Dragonfly"] = true,
-	["Racoon"] = true,
-	["Red Fox"] = true,
-	["Penguin"] = true,
-	["Phoenix"] = true,
-	["Golden Ant"] = true
-}
-
--- === GUI Setup ===
+-- Use PlayerGui for Delta X compatibility
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "RarePetScannerGUI"
-ScreenGui.Parent = CoreGui
+ScreenGui.Name = "RareScannerUI"
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
 local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0, 250, 0, 140)
+Frame.Size = UDim2.new(0, 270, 0, 120)
 Frame.Position = UDim2.new(0, 10, 0, 10)
 Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-Frame.BorderSizePixel = 0
 Frame.Parent = ScreenGui
 
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 30)
-Title.BackgroundTransparency = 1
-Title.Text = "🐝 Rare Pet Scanner"
-Title.TextColor3 = Color3.new(1, 1, 1)
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 16
-Title.Parent = Frame
+local Label = Instance.new("TextLabel")
+Label.Size = UDim2.new(1, 0, 1, 0)
+Label.TextColor3 = Color3.new(1, 1, 1)
+Label.Font = Enum.Font.GothamBold
+Label.TextSize = 16
+Label.TextWrapped = true
+Label.Text = "🔍 Scanning..."
+Label.BackgroundTransparency = 1
+Label.Parent = Frame
 
-local Status = Instance.new("TextLabel")
-Status.Position = UDim2.new(0, 0, 0, 35)
-Status.Size = UDim2.new(1, 0, 0, 20)
-Status.BackgroundTransparency = 1
-Status.TextColor3 = Color3.new(1, 1, 1)
-Status.Font = Enum.Font.Gotham
-Status.TextSize = 14
-Status.Text = "Status: Waiting"
-Status.Parent = Frame
+-- === Rare pets list ===
+local RARE_PETS = {
+    ["Disco Bee"] = true,
+    ["Butterfly"] = true,
+    ["Dragonfly"] = true,
+    ["Racoon"] = true,
+    ["Red Fox"] = true,
+    ["Penguin"] = true,
+    ["Phoenix"] = true,
+    ["Golden Ant"] = true
+}
 
-local FoundLabel = Instance.new("TextLabel")
-FoundLabel.Position = UDim2.new(0, 0, 0, 60)
-FoundLabel.Size = UDim2.new(1, 0, 0, 60)
-FoundLabel.BackgroundTransparency = 1
-FoundLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-FoundLabel.Font = Enum.Font.GothamBold
-FoundLabel.TextSize = 14
-FoundLabel.TextWrapped = true
-FoundLabel.Text = ""
-FoundLabel.Parent = Frame
+-- === Scanner function ===
+local function scanWorld()
+    local found = nil
 
--- === Functional Logic ===
-local function findRarePet()
-	for _, obj in ipairs(workspace:GetDescendants()) do
-		if obj:IsA("Model") and obj.Name == "Pet" and obj:FindFirstChild("Name") then
-			local nameVal = obj:FindFirstChild("Name")
-			if nameVal:IsA("StringValue") then
-				if RARE_PETS[nameVal.Value] then
-					return nameVal.Value
-				end
-			end
-		end
-	end
-	return nil
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") then
+            for _, child in ipairs(obj:GetChildren()) do
+                if child:IsA("StringValue") or child:IsA("TextLabel") then
+                    local val = child.Value
+                    if val and typeof(val) == "string" then
+                        if RARE_PETS[val] then
+                            found = val
+                            print("✅ Rare pet found: " .. val)
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return found
 end
 
-local function sendWebhook(petName)
-	local payload = {
-		content = string.format("🎯 Rare pet `%s` found!\nJobId: `%s`", petName, game.JobId)
-	}
-	local success, err = pcall(function()
-		HttpService:PostAsync(WEBHOOK, HttpService:JSONEncode(payload), Enum.HttpContentType.ApplicationJson)
-	end)
-	return success
-end
-
-local function hop()
-	Status.Text = "Status: Hopping..."
-	local servers = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..PLACE_ID.."/servers/Public?sortOrder=Desc&limit=100"))
-	for _, s in ipairs(servers.data) do
-		if s.id ~= game.JobId and s.playing < s.maxPlayers then
-			TeleportService:TeleportToPlaceInstance(PLACE_ID, s.id, LocalPlayer)
-			return
-		end
-	end
-end
-
--- === Loop ===
+-- === Main loop ===
 while true do
-	Status.Text = "Status: Scanning..."
-	local petName = findRarePet()
-	if petName then
-		FoundLabel.Text = "✅ Rare Found: "..petName
-		Status.Text = "Status: Found!"
-		sendWebhook(petName)
-		break
-	else
-		FoundLabel.Text = "❌ None found"
-		task.wait(2)
-		hop()
-	end
-	wait(6)
+    local result = scanWorld()
+    if result then
+        Label.Text = "✅ Found: " .. result
+        break
+    else
+        Label.Text = "❌ No rare pet found. Rescanning..."
+        print("Rescanning...")
+    end
+    task.wait(5)
 end
