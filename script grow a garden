@@ -1,153 +1,118 @@
--- Clean GUI with Pet Monitoring, Server Hop, Webhook Input
-local Players = game:GetService("Players")
+-- 🖥️ Alt Account GUI Scanner for Grow a Garden
+-- Detects rare pets (Disco Bee / Butterfly / Divine pets) in server
+-- Sends alert if found
+
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
+local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local PLACE_ID = game.PlaceId
+local CoreGui = game:GetService("CoreGui")
 
-local webhookURL = ""
-local isRunning = false
+-- === CONFIG ===
+local WEBHOOK = "https://discord.com/api/webhooks/YOUR_WEBHOOK_HERE"
+local PLACE_ID = 15744126173
+local RARE_PETS = {
+	["Disco Bee"] = true,
+	["Butterfly"] = true,
+	["Dragonfly"] = true,
+	["Racoon"] = true,
+	["Red Fox"] = true,
+	["Penguin"] = true,
+	["Phoenix"] = true,
+	["Golden Ant"] = true
+}
 
--- GUI Setup
-local gui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
-gui.Name = "SimplePetFinder"
+-- === GUI Setup ===
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "RarePetScannerGUI"
+ScreenGui.Parent = CoreGui
 
-local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.new(0, 350, 0, 240)
-frame.Position = UDim2.new(0.5, -175, 0.5, -120)
-frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-frame.AnchorPoint = Vector2.new(0.5, 0.5)
-Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0, 250, 0, 140)
+Frame.Position = UDim2.new(0, 10, 0, 10)
+Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Frame.BorderSizePixel = 0
+Frame.Parent = ScreenGui
 
-local function createLabel(text, posY)
-    local label = Instance.new("TextLabel", frame)
-    label.Size = UDim2.new(1, -20, 0, 20)
-    label.Position = UDim2.new(0, 10, 0, posY)
-    label.BackgroundTransparency = 1
-    label.Text = text
-    label.TextColor3 = Color3.new(1, 1, 1)
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Font = Enum.Font.SourceSansSemibold
-    label.TextSize = 18
-    return label
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.BackgroundTransparency = 1
+Title.Text = "🐝 Rare Pet Scanner"
+Title.TextColor3 = Color3.new(1, 1, 1)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 16
+Title.Parent = Frame
+
+local Status = Instance.new("TextLabel")
+Status.Position = UDim2.new(0, 0, 0, 35)
+Status.Size = UDim2.new(1, 0, 0, 20)
+Status.BackgroundTransparency = 1
+Status.TextColor3 = Color3.new(1, 1, 1)
+Status.Font = Enum.Font.Gotham
+Status.TextSize = 14
+Status.Text = "Status: Waiting"
+Status.Parent = Frame
+
+local FoundLabel = Instance.new("TextLabel")
+FoundLabel.Position = UDim2.new(0, 0, 0, 60)
+FoundLabel.Size = UDim2.new(1, 0, 0, 60)
+FoundLabel.BackgroundTransparency = 1
+FoundLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+FoundLabel.Font = Enum.Font.GothamBold
+FoundLabel.TextSize = 14
+FoundLabel.TextWrapped = true
+FoundLabel.Text = ""
+FoundLabel.Parent = Frame
+
+-- === Functional Logic ===
+local function findRarePet()
+	for _, obj in ipairs(workspace:GetDescendants()) do
+		if obj:IsA("Model") and obj.Name == "Pet" and obj:FindFirstChild("Name") then
+			local nameVal = obj:FindFirstChild("Name")
+			if nameVal:IsA("StringValue") then
+				if RARE_PETS[nameVal.Value] then
+					return nameVal.Value
+				end
+			end
+		end
+	end
+	return nil
 end
 
-local function createInput(posY, placeholder)
-    local input = Instance.new("TextBox", frame)
-    input.Size = UDim2.new(1, -20, 0, 30)
-    input.Position = UDim2.new(0, 10, 0, posY)
-    input.PlaceholderText = placeholder
-    input.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    input.TextColor3 = Color3.new(1, 1, 1)
-    input.Font = Enum.Font.SourceSans
-    input.TextSize = 18
-    input.ClearTextOnFocus = false
-    Instance.new("UICorner", input).CornerRadius = UDim.new(0, 6)
-    return input
+local function sendWebhook(petName)
+	local payload = {
+		content = string.format("🎯 Rare pet `%s` found!\nJobId: `%s`", petName, game.JobId)
+	}
+	local success, err = pcall(function()
+		HttpService:PostAsync(WEBHOOK, HttpService:JSONEncode(payload), Enum.HttpContentType.ApplicationJson)
+	end)
+	return success
 end
 
-createLabel("Pet/Item Name:", 10)
-local petInput = createInput(35, "Disco bee")
-
-createLabel("Webhook URL:", 75)
-local webhookInput = createInput(100, "Paste your Discord webhook here")
-
-local startButton = Instance.new("TextButton", frame)
-startButton.Size = UDim2.new(1, -20, 0, 40)
-startButton.Position = UDim2.new(0, 10, 0, 140)
-startButton.Text = "🌐 Start"
-startButton.Font = Enum.Font.SourceSansBold
-startButton.TextSize = 20
-startButton.BackgroundColor3 = Color3.fromRGB(40, 130, 220)
-startButton.TextColor3 = Color3.new(1, 1, 1)
-Instance.new("UICorner", startButton).CornerRadius = UDim.new(0, 6)
-
-local statusLabel = Instance.new("TextLabel", frame)
-statusLabel.Size = UDim2.new(1, -20, 0, 20)
-statusLabel.Position = UDim2.new(0, 10, 0, 190)
-statusLabel.BackgroundTransparency = 1
-statusLabel.TextColor3 = Color3.new(1, 1, 1)
-statusLabel.TextXAlignment = Enum.TextXAlignment.Center
-statusLabel.Text = "Status: Idle"
-statusLabel.Font = Enum.Font.SourceSans
-statusLabel.TextSize = 18
-
--- Utility Functions
-function hasItem(name)
-    for _, v in pairs(workspace:GetDescendants()) do
-        if v:IsA("Model") and v.Name == name then
-            return true
-        end
-    end
-    return false
+local function hop()
+	Status.Text = "Status: Hopping..."
+	local servers = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..PLACE_ID.."/servers/Public?sortOrder=Desc&limit=100"))
+	for _, s in ipairs(servers.data) do
+		if s.id ~= game.JobId and s.playing < s.maxPlayers then
+			TeleportService:TeleportToPlaceInstance(PLACE_ID, s.id, LocalPlayer)
+			return
+		end
+	end
 end
 
-function sendWebhook(jobId, petName)
-    local data = {
-        content = "Found `" .. petName .. "` in server with JobId: ``" .. jobId .. "``"
-    }
-    local headers = {
-        ["Content-Type"] = "application/json"
-    }
-    local success, response = pcall(function()
-        HttpService:PostAsync(webhookURL, HttpService:JSONEncode(data), Enum.HttpContentType.ApplicationJson, false)
-    end)
+-- === Loop ===
+while true do
+	Status.Text = "Status: Scanning..."
+	local petName = findRarePet()
+	if petName then
+		FoundLabel.Text = "✅ Rare Found: "..petName
+		Status.Text = "Status: Found!"
+		sendWebhook(petName)
+		break
+	else
+		FoundLabel.Text = "❌ None found"
+		task.wait(2)
+		hop()
+	end
+	wait(6)
 end
-
-function monitorForPet(petName)
-    local timeout = 30
-    local startTime = tick()
-    while tick() - startTime < timeout do
-        if hasItem(petName) then
-            sendWebhook(game.JobId, petName)
-            statusLabel.Text = "Status: Pet/Item found!"
-            return true
-        end
-        wait(2)
-    end
-    return false
-end
-
-function hopServers(petName)
-    local servers = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. PLACE_ID .. "/servers/Public?sortOrder=Asc&limit=100"))
-    for _, server in pairs(servers.data) do
-        if server.id ~= game.JobId and server.playing < server.maxPlayers then
-            TeleportService:TeleportToPlaceInstance(PLACE_ID, server.id)
-            break
-        end
-    end
-end
-
-startButton.MouseButton1Click:Connect(function()
-    if isRunning then
-        statusLabel.Text = "Status: Already running"
-        return
-    end
-
-    local petName = petInput.Text
-    local webhook = webhookInput.Text
-
-    if petName == "" or webhook == "" then
-        statusLabel.Text = "Status: Enter pet name and webhook"
-        return
-    end
-
-    webhookURL = webhook
-    isRunning = true
-    statusLabel.Text = "Status: Monitoring for " .. petName .. "..."
-
-    wait(5)
-
-    if hasItem(petName) then
-        sendWebhook(game.JobId, petName)
-        statusLabel.Text = "Status: Pet/Item found here!"
-        isRunning = false
-    else
-        local found = monitorForPet(petName)
-        if not found then
-            statusLabel.Text = "Status: Not found, hopping..."
-            hopServers(petName)
-        end
-        isRunning = false
-    end
-end)
