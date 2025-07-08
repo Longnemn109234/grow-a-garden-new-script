@@ -1,73 +1,158 @@
-local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
+local originalName = LocalPlayer.DisplayName
 
--- Use PlayerGui for Delta X compatibility
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "RareScannerUI"
-ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+-- 👁️ GUI
+local gui = Instance.new("ScreenGui", game.CoreGui)
+gui.Name = "TrollPetGUI"
 
-local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0, 270, 0, 120)
-Frame.Position = UDim2.new(0, 10, 0, 10)
-Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-Frame.Parent = ScreenGui
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0, 260, 0, 260)
+frame.Position = UDim2.new(0.7, 0, 0.25, 0)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.BorderSizePixel = 0
 
-local Label = Instance.new("TextLabel")
-Label.Size = UDim2.new(1, 0, 1, 0)
-Label.TextColor3 = Color3.new(1, 1, 1)
-Label.Font = Enum.Font.GothamBold
-Label.TextSize = 16
-Label.TextWrapped = true
-Label.Text = "🔍 Scanning..."
-Label.BackgroundTransparency = 1
-Label.Parent = Frame
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1, 0, 0, 25)
+title.Text = "🐾 Troll + Fake Gift GUI"
+title.TextColor3 = Color3.new(1,1,1)
+title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+title.Font = Enum.Font.SourceSansBold
+title.TextSize = 18
 
--- === Rare pets list ===
-local RARE_PETS = {
-    ["Disco Bee"] = true,
-    ["Butterfly"] = true,
-    ["Dragonfly"] = true,
-    ["Racoon"] = true,
-    ["Red Fox"] = true,
-    ["Penguin"] = true,
-    ["Phoenix"] = true,
-    ["Golden Ant"] = true
-}
+-- 🔽 Dropdown chọn người
+local dropdown = Instance.new("TextButton", frame)
+dropdown.Position = UDim2.new(0, 10, 0, 35)
+dropdown.Size = UDim2.new(1, -20, 0, 30)
+dropdown.Text = "🔽 Chọn người chơi"
+dropdown.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+dropdown.TextColor3 = Color3.new(1,1,1)
+dropdown.Font = Enum.Font.SourceSans
+dropdown.TextSize = 16
 
--- === Scanner function ===
-local function scanWorld()
-    local found = nil
+local dropdownList = Instance.new("Frame", frame)
+dropdownList.Position = UDim2.new(0, 10, 0, 65)
+dropdownList.Size = UDim2.new(1, -20, 0, 60)
+dropdownList.Visible = false
+dropdownList.BackgroundColor3 = Color3.fromRGB(60,60,60)
 
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("Model") then
-            for _, child in ipairs(obj:GetChildren()) do
-                if child:IsA("StringValue") or child:IsA("TextLabel") then
-                    local val = child.Value
-                    if val and typeof(val) == "string" then
-                        if RARE_PETS[val] then
-                            found = val
-                            print("✅ Rare pet found: " .. val)
-                            break
-                        end
-                    end
-                end
-            end
-        end
-    end
+dropdown.MouseButton1Click:Connect(function()
+	dropdownList.Visible = not dropdownList.Visible
+end)
 
-    return found
+-- Nút chọn người chơi
+local function makePlayerButton(name)
+	local btn = Instance.new("TextButton", dropdownList)
+	btn.Size = UDim2.new(1, 0, 0, 20)
+	btn.Text = name
+	btn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+	btn.TextColor3 = Color3.new(1,1,1)
+	btn.Font = Enum.Font.SourceSans
+	btn.TextSize = 14
+	btn.MouseButton1Click:Connect(function()
+		dropdown.Text = "🎯 Troll: "..name
+		dropdownList.Visible = false
+
+		local target = Players:FindFirstChild(name)
+		if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+			-- Teleport
+			LocalPlayer.Character:FindFirstChild("HumanoidRootPart").CFrame =
+				target.Character:FindFirstChild("HumanoidRootPart").CFrame + Vector3.new(0, 0.5, 0)
+
+			-- Đổi tên
+			local myTag = LocalPlayer.Character.Head:FindFirstChildOfClass("BillboardGui")
+			local targetTag = target.Character.Head:FindFirstChildOfClass("BillboardGui")
+			if myTag and targetTag then
+				myTag.TextLabel.Text = targetTag.TextLabel.Text
+			end
+		end
+	end)
 end
 
--- === Main loop ===
-while true do
-    local result = scanWorld()
-    if result then
-        Label.Text = "✅ Found: " .. result
-        break
-    else
-        Label.Text = "❌ No rare pet found. Rescanning..."
-        print("Rescanning...")
-    end
-    task.wait(5)
+for _, p in pairs(Players:GetPlayers()) do
+	if p ~= LocalPlayer then
+		makePlayerButton(p.Name)
+	end
 end
+
+-- 🔄 Reset Troll
+local resetBtn = Instance.new("TextButton", frame)
+resetBtn.Position = UDim2.new(0, 10, 0, 130)
+resetBtn.Size = UDim2.new(1, -20, 0, 25)
+resetBtn.Text = "🔄 Reset Troll"
+resetBtn.BackgroundColor3 = Color3.fromRGB(90, 20, 20)
+resetBtn.TextColor3 = Color3.new(1,1,1)
+resetBtn.Font = Enum.Font.SourceSansBold
+resetBtn.TextSize = 16
+
+resetBtn.MouseButton1Click:Connect(function()
+	local tag = LocalPlayer.Character.Head:FindFirstChildOfClass("BillboardGui")
+	if tag then
+		tag.TextLabel.Text = originalName
+	end
+end)
+
+-- 🎁 Fake Gift GUI
+local giftBtn = Instance.new("TextButton", frame)
+giftBtn.Position = UDim2.new(0, 10, 0, 165)
+giftBtn.Size = UDim2.new(1, -20, 0, 30)
+giftBtn.Text = "🎁 Mở GUI Gift Pet (giả)"
+giftBtn.BackgroundColor3 = Color3.fromRGB(20, 80, 20)
+giftBtn.TextColor3 = Color3.new(1,1,1)
+giftBtn.Font = Enum.Font.SourceSansBold
+giftBtn.TextSize = 16
+
+-- 🎁 Fake Gift Window
+giftBtn.MouseButton1Click:Connect(function()
+	local giftFrame = Instance.new("Frame", gui)
+	giftFrame.Size = UDim2.new(0, 250, 0, 160)
+	giftFrame.Position = UDim2.new(0.5, -125, 0.5, -80)
+	giftFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+	giftFrame.BorderSizePixel = 0
+
+	local lbl = Instance.new("TextLabel", giftFrame)
+	lbl.Size = UDim2.new(1, 0, 0, 30)
+	lbl.Text = "🎁 Gửi Pet (giả)"
+	lbl.TextColor3 = Color3.new(1,1,1)
+	lbl.Font = Enum.Font.SourceSansBold
+	lbl.TextSize = 18
+	lbl.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+
+	local input = Instance.new("TextBox", giftFrame)
+	input.Position = UDim2.new(0, 10, 0, 40)
+	input.Size = UDim2.new(1, -20, 0, 30)
+	input.PlaceholderText = "Tên pet bạn muốn gửi"
+	input.Text = ""
+	input.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+	input.TextColor3 = Color3.new(1,1,1)
+	input.Font = Enum.Font.SourceSans
+	input.TextSize = 16
+
+	local accept = Instance.new("TextButton", giftFrame)
+	accept.Position = UDim2.new(0, 10, 0, 90)
+	accept.Size = UDim2.new(0.5, -15, 0, 30)
+	accept.Text = "✔️ Gửi"
+	accept.BackgroundColor3 = Color3.fromRGB(0, 120, 0)
+	accept.TextColor3 = Color3.new(1,1,1)
+	accept.Font = Enum.Font.SourceSansBold
+	accept.TextSize = 16
+
+	local cancel = Instance.new("TextButton", giftFrame)
+	cancel.Position = UDim2.new(0.5, 5, 0, 90)
+	cancel.Size = UDim2.new(0.5, -15, 0, 30)
+	cancel.Text = "❌ Hủy"
+	cancel.BackgroundColor3 = Color3.fromRGB(120, 0, 0)
+	cancel.TextColor3 = Color3.new(1,1,1)
+	cancel.Font = Enum.Font.SourceSansBold
+	cancel.TextSize = 16
+
+	accept.MouseButton1Click:Connect(function()
+		lbl.Text = "🎁 Đã gửi pet: " .. input.Text
+		accept.Visible = false
+		cancel.Text = "Đóng"
+	end)
+
+	cancel.MouseButton1Click:Connect(function()
+		giftFrame:Destroy()
+	end)
+end)
